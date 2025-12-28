@@ -2,45 +2,110 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RifqyTube Ultra</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RifqyTube Pro</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #000; color: white; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; }
-        .header { height: 60px; background: #111; display: flex; align-items: center; padding: 0 15px; border-bottom: 2px solid red; }
-        .logo { font-size: 20px; font-weight: bold; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: sans-serif; }
+        body { background: #000; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        
+        /* HEADER NAVIGASI */
+        .app-header {
+            height: 50px;
+            background: #111;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            border-bottom: 1px solid #333;
+            flex-shrink: 0;
+        }
+        
+        .logo { color: #fff; font-weight: bold; font-size: 18px; }
         .logo span { color: red; }
-        .container { flex: 1; position: relative; }
-        iframe { width: 100%; height: 100%; border: none; }
-        /* Tombol Ganti Server jika macet */
-        .btn-fix { position: fixed; bottom: 20px; right: 20px; background: red; color: white; border: none; padding: 10px 15px; border-radius: 50px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.5); cursor: pointer; z-index: 999; }
+        
+        /* PILIHAN SERVER (Kalau satu lemot, ganti disini) */
+        select#server-list {
+            background: #222;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 5px;
+            border-radius: 5px;
+            font-size: 12px;
+            outline: none;
+        }
+
+        /* CONTAINER UTAMA */
+        .frame-container {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            position: relative;
+        }
+
+        /* LOADING SPINNER */
+        .loader {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: white; font-size: 14px;
+            z-index: 0; /* Di belakang iframe */
+        }
+
+        /* IFRAME (LAYAR VIDEO) */
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #000;
+            position: relative;
+            z-index: 1;
+        }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <div class="logo">RifqyTube<span>Ultra</span></div>
+    <div class="app-header">
+        <div class="logo">RifqyTube<span>.</span></div>
+        
+        <select id="server-list" onchange="changeServer()">
+            <option value="https://yewtu.be/feed/trending">Server Utama (Trending)</option>
+            <option value="https://piped.video">Server Piped (Cadangan)</option>
+        </select>
     </div>
 
-    <div class="container">
-        <iframe id="tube-frame" src="https://yewtu.be" allowfullscreen></iframe>
+    <div class="frame-container">
+        <div class="loader">Memuat RifqyTube...</div>
+        <iframe id="main-frame" src="" allowfullscreen sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"></iframe>
     </div>
-
-    <button class="btn-fix" onclick="emergencyFix()">Ganti Server Anti-Error</button>
 
     <script>
-        function emergencyFix() {
-            const servers = [
-                "https://inv.tux.digital",
-                "https://invidious.io.lol",
-                "https://yt.artemislena.eu",
-                "https://invidious.snopyta.org"
-            ];
-            const currentServer = document.getElementById('tube-frame').src;
-            let nextIndex = (servers.indexOf(currentServer) + 1) % servers.length;
-            document.getElementById('tube-frame').src = servers[nextIndex];
-            alert("Mencoba Server Cadangan... Tunggu sebentar.");
+        const frame = document.getElementById('main-frame');
+        const selector = document.getElementById('server-list');
+
+        // Fungsi Ganti Server
+        function changeServer() {
+            const selectedUrl = selector.value;
+            // Simpan pilihan terakhir user di memori HP
+            localStorage.setItem('rifqytube_server', selectedUrl);
+            frame.src = selectedUrl;
+        }
+
+        // Cek apakah user pernah milih server sebelumnya
+        window.onload = () => {
+            const savedServer = localStorage.getItem('rifqytube_server');
+            
+            // Cek apakah savedServer ada di dalam opsi kita yang baru (validasi sederhana)
+            // Kalau server lama user tidak ada di list baru, kita paksa reset ke default
+            if(savedServer && (savedServer === "https://yewtu.be/feed/trending" || savedServer === "https://piped.video")) {
+                selector.value = savedServer;
+                frame.src = savedServer;
+            } else {
+                // Default server: YewTu.be Trending
+                frame.src = "https://yewtu.be/feed/trending";
+                selector.value = "https://yewtu.be/feed/trending";
+            }
         }
     </script>
+
 </body>
 </html>
