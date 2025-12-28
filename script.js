@@ -1,13 +1,8 @@
-// --- CONFIG API MULTI-SERVER ---
-// Daftar server cadangan. Kalau satu mati, dia pindah ke bawahnya.
-const SERVERS = [
-    'https://api.piped.privacy.com.de', // Server Jerman (Biasanya Stabil)
-    'https://pipedapi.kavin.rocks',     // Server Utama (Sering Penuh tapi lengkap)
-    'https://pipedapi.drg.li',          // Server Cadangan 1
-    'https://api.piped.yt'              // Server Cadangan 2
-];
+// --- CONFIG API ---
+// Kita gunakan instance Piped publik yang stabil
+const API_BASE = 'https://pipedapi.kavin.rocks'; 
+const REGION = 'ID'; // Set ke Indonesia
 
-let currentServerIndex = 0; // Mulai dari server pertama
 const feedContainer = document.getElementById('video-feed');
 const playerOverlay = document.getElementById('player-overlay');
 const miniPlayer = document.getElementById('mini-player');
@@ -18,39 +13,16 @@ window.onload = () => {
     loadTrending();
 };
 
-// --- FUNGSI PINTAR: SMART FETCH ---
-// Ini fungsi rahasianya. Dia bakal nyoba server satu-satu sampai berhasil.
-async function smartFetch(endpoint) {
-    for (let i = 0; i < SERVERS.length; i++) {
-        // Coba server urutan sekarang (kalau gagal, index digeser di catch)
-        let server = SERVERS[(currentServerIndex + i) % SERVERS.length]; 
-        try {
-            console.log(`Mencoba connect ke: ${server}`);
-            const res = await fetch(`${server}${endpoint}`);
-            if (!res.ok) throw new Error("Server error");
-            return await res.json(); // Kalau berhasil, langsung kembalikan data
-        } catch (e) {
-            console.warn(`Gagal di ${server}, mencoba server berikutnya...`);
-            continue; // Lanjut ke server berikutnya di list
-        }
-    }
-    throw new Error("Semua server sibuk/mati.");
-}
-
-// --- LOGIKA UTAMA ---
+// --- FETCH DATA ---
 async function loadTrending() {
     feedContainer.innerHTML = '<div class="loading-spinner"></div>';
     try {
-        // Kita pakai smartFetch, bukan fetch biasa
-        const data = await smartFetch(`/trending?region=ID`);
+        const res = await fetch(`${API_BASE}/trending?region=${REGION}`);
+        const data = await res.json();
         renderVideos(data);
     } catch (e) {
-        feedContainer.innerHTML = `
-            <div style="text-align:center; padding:20px; color:#aaa;">
-                <p>⚠️ Semua server sedang sibuk.</p>
-                <button onclick="loadTrending()" style="margin-top:10px; padding:5px 10px; cursor:pointer;">Coba Lagi</button>
-            </div>
-        `;
+        feedContainer.innerHTML = '<p style="text-align:center; margin-top:20px;">Gagal memuat video. Coba lagi nanti.</p>';
+        console.error(e);
     }
 }
 
@@ -60,10 +32,12 @@ async function performSearch() {
 
     feedContainer.innerHTML = '<div class="loading-spinner"></div>';
     try {
-        const data = await smartFetch(`/search?q=${encodeURIComponent(query)}&filter=videos`);
+        // Filter: all, videos, channels, playlists
+        const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}&filter=videos`);
+        const data = await res.json();
         renderVideos(data.items);
     } catch (e) {
-        feedContainer.innerHTML = '<p style="text-align:center; color:red;">Pencarian gagal di semua server.</p>';
+        console.error(e);
     }
 }
 
@@ -80,15 +54,12 @@ function handleEnter(e) {
 function renderVideos(videos) {
     feedContainer.innerHTML = '';
     
-    if(!videos || videos.length === 0) {
-        feedContainer.innerHTML = '<p style="text-align:center;">Tidak ada video ditemukan.</p>';
-        return;
-    }
-
     videos.forEach(video => {
-        // Filter: Hanya ambil yang punya URL (Video Valid)
-        if (!video.url) return;
-        const videoId = video.url.split('v=')[1];
+        // Piped API kadang mengembalikan stream/channel, kita filter video saja
+        if (!video.url && !video.thumbnail) return;
+
+        // Ambil ID Video dari URL (/watch?v=ID)
+        const videoId = video.url ? video.url.split('v=')[1] : null;
         if(!videoId) return;
 
         const div = document.createElement('div');
@@ -96,9 +67,9 @@ function renderVideos(videos) {
         div.onclick = () => openPlayer(videoId, video);
         
         div.innerHTML = `
-            <img src="${video.thumbnail}" class="thumbnail" loading="lazy" onerror="this.src='https://via.placeholder.com/300x169?text=Error+Img'">
+            <img src="${video.thumbnail}" class="thumbnail" loading="lazy">
             <div class="video-meta">
-                <img src="${video.uploaderAvatar || 'https://via.placeholder.com/36'}" class="avatar" onerror="this.src='https://via.placeholder.com/36'">
+                <img src="${video.uploaderAvatar || 'https://via.placeholder.com/36'}" class="avatar">
                 <div class="details">
                     <h3 class="v-title">${video.title}</h3>
                     <p class="v-channel">${video.uploaderName} • ${formatViews(video.views)}</p>
@@ -111,30 +82,34 @@ function renderVideos(videos) {
 
 // --- PLAYER LOGIC ---
 async function openPlayer(videoId, metaData) {
+    // 1. Tampilkan Overlay
     playerOverlay.classList.add('show');
     miniPlayer.classList.add('hidden');
 
-    // Kita pakai domain embed yang berbeda agar lebih universal
+    // 2. Load Video (Pakai Embed Piped biar BEBAS IKLAN)
+    // Kita pakai domain embed yang berbeda biar loadnya cepat
     iframe.src = `https://piped.video/embed/${videoId}?autoplay=1`;
 
-    // Set Info Sementara
+    // 3. Set Info Sementara (dari hasil search)
     document.getElementById('video-title').innerText = metaData.title;
     document.getElementById('channel-name').innerText = metaData.uploaderName;
     document.getElementById('video-views').innerText = formatViews(metaData.views);
     document.getElementById('channel-img').src = metaData.uploaderAvatar || '';
 
-    // Ambil Deskripsi (Optional, pakai smartFetch juga)
+    // 4. Fetch Detail Lengkap (Deskripsi, dll)
     try {
-        const detail = await smartFetch(`/streams/${videoId}`);
+        const res = await fetch(`${API_BASE}/streams/${videoId}`);
+        const detail = await res.json();
         document.getElementById('video-desc').innerText = detail.description || "Tidak ada deskripsi.";
     } catch (e) {
-        console.log("Deskripsi skip dulu");
+        console.log("Gagal ambil detail");
     }
 }
 
 function minimizePlayer() {
     playerOverlay.classList.remove('show');
     miniPlayer.classList.remove('hidden');
+    // Video tetap jalan karena iframe tidak dihapus, cuma disembunyikan UI-nya
 }
 
 function maximizePlayer() {
@@ -143,13 +118,14 @@ function maximizePlayer() {
 }
 
 function closePlayer() {
-    iframe.src = ""; 
+    iframe.src = ""; // Matikan video
     miniPlayer.classList.add('hidden');
     playerOverlay.classList.remove('show');
 }
 
+// --- UTILS ---
 function formatViews(num) {
     if(num >= 1000000) return (num/1000000).toFixed(1) + 'Jt';
     if(num >= 1000) return (num/1000).toFixed(1) + 'Rb';
-    return num || '0';
+    return num;
 }
