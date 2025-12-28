@@ -3,70 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>RifqyTube Premium</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <title>RifqyTube Pro</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: sans-serif; }
+        body { background: #000; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        
+        /* HEADER NAVIGASI */
+        .app-header {
+            height: 50px;
+            background: #111;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            border-bottom: 1px solid #333;
+            flex-shrink: 0;
+        }
+        
+        .logo { color: #fff; font-weight: bold; font-size: 18px; }
+        .logo span { color: red; }
+        
+        /* PILIHAN SERVER (Kalau satu lemot, ganti disini) */
+        select#server-list {
+            background: #222;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 5px;
+            border-radius: 5px;
+            font-size: 12px;
+            outline: none;
+        }
+
+        /* CONTAINER UTAMA */
+        .frame-container {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            position: relative;
+        }
+
+        /* LOADING SPINNER */
+        .loader {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: white; font-size: 14px;
+            z-index: 0; /* Di belakang iframe */
+        }
+
+        /* IFRAME (LAYAR VIDEO) */
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #000;
+            position: relative;
+            z-index: 1;
+        }
+    </style>
 </head>
 <body>
 
     <div class="app-header">
-        <div class="logo">RifqyTube<span style="color:#ff0000;">.</span></div>
-        <div class="search-bar">
-            <input type="text" id="search-input" placeholder="Cari video..." onkeypress="handleEnter(event)">
-            <button onclick="performSearch()">
-                <span class="material-icons-round">search</span>
-            </button>
-        </div>
+        <div class="logo">RifqyTube<span>.</span></div>
+        
+        <select id="server-list" onchange="changeServer()">
+            <option value="https://piped.video">Server Utama (Global)</option>
+            <option value="https://piped.mha.fi">Server Eropa (Cepat)</option>
+            <option value="https://piped.kavin.rocks">Server Cadangan 1</option>
+            <option value="https://piped.drg.li">Server Cadangan 2</option>
+        </select>
     </div>
 
-    <div class="chips-container">
-        <div class="chip active" onclick="loadTrending()">Trending</div>
-        <div class="chip" onclick="searchByCat('Music')">Musik</div>
-        <div class="chip" onclick="searchByCat('Gaming')">Gaming</div>
-        <div class="chip" onclick="searchByCat('Tech')">Teknologi</div>
-        <div class="chip" onclick="searchByCat('News')">Berita</div>
+    <div class="frame-container">
+        <div class="loader">Memuat RifqyTube...</div>
+        <iframe id="main-frame" src="" allowfullscreen sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"></iframe>
     </div>
 
-    <div id="video-feed" class="video-feed">
-        <div class="loading-spinner"></div>
-    </div>
+    <script>
+        const frame = document.getElementById('main-frame');
+        const selector = document.getElementById('server-list');
 
-    <div id="player-overlay" class="player-overlay">
-        <div class="player-handle-bar" onclick="minimizePlayer()">
-            <div class="handle"></div>
-        </div>
+        // Fungsi Ganti Server
+        function changeServer() {
+            const selectedUrl = selector.value;
+            // Simpan pilihan terakhir user di memori HP
+            localStorage.setItem('rifqytube_server', selectedUrl);
+            frame.src = selectedUrl;
+        }
 
-        <div class="player-wrapper">
-            <iframe id="yt-iframe" src="" frameborder="0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
-        </div>
+        // Cek apakah user pernah milih server sebelumnya
+        window.onload = () => {
+            const savedServer = localStorage.getItem('rifqytube_server');
+            if(savedServer) {
+                selector.value = savedServer;
+                frame.src = savedServer;
+            } else {
+                // Default server
+                frame.src = "https://piped.video"; 
+            }
+        }
+    </script>
 
-        <div class="video-info-scroll">
-            <h2 id="video-title">Judul Video</h2>
-            <div class="channel-info">
-                <img id="channel-img" src="" onerror="this.src='https://via.placeholder.com/40'">
-                <div>
-                    <h4 id="channel-name">Nama Channel</h4>
-                    <p id="video-views">0 views</p>
-                </div>
-                <button class="btn-subscribe">Subscribe</button>
-            </div>
-            <div class="description-box">
-                <p id="video-desc">Deskripsi video...</p>
-            </div>
-        </div>
-    </div>
-
-    <div id="mini-player" class="mini-player hidden">
-        <div class="mini-info" onclick="maximizePlayer()">
-            <p>Sedang Memutar Video</p>
-            <small>Ketuk untuk memperbesar</small>
-        </div>
-        <button class="btn-close-mini" onclick="closePlayer()">
-            <span class="material-icons-round">close</span>
-        </button>
-    </div>
-
-    <script src="script.js"></script>
 </body>
 </html>
